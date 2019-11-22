@@ -5,6 +5,59 @@ import numpy as np
 import pygame
 
 
+def cartesian(arrays, out=None):
+    """
+    Generate a cartesian product of input arrays.
+
+    Parameters
+    ----------
+    arrays : list of array-like
+        1-D arrays to form the cartesian product of.
+    out : ndarray
+        Array to place the cartesian product in.
+
+    Returns
+    -------
+    out : ndarray
+        2-D array of shape (M, len(arrays)) containing cartesian products
+        formed of input arrays.
+
+    Examples
+    --------
+    >>> cartesian(([1, 2, 3], [4, 5], [6, 7]))
+    array([[1, 4, 6],
+           [1, 4, 7],
+           [1, 5, 6],
+           [1, 5, 7],
+           [2, 4, 6],
+           [2, 4, 7],
+           [2, 5, 6],
+           [2, 5, 7],
+           [3, 4, 6],
+           [3, 4, 7],
+           [3, 5, 6],
+           [3, 5, 7]])
+
+    """
+
+    arrays = [np.asarray(x) for x in arrays]
+    dtype = arrays[0].dtype
+
+    n = np.prod([x.size for x in arrays])
+    if out is None:
+        out = np.zeros([n, len(arrays)], dtype=dtype)
+
+    m = int(n / arrays[0].size)
+    out[:,0] = np.repeat(arrays[0], m)
+    if arrays[1:]:
+        cartesian(arrays[1:], out=out[0:m,1:])
+        for j in range(1, arrays[0].size):
+            out[j*m:(j+1)*m,1:] = out[0:m,1:]
+    return out
+
+
+
+
 class PongEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
@@ -36,8 +89,30 @@ class PongEnv(gym.Env):
         self.observation_space = self._observation_space()
         self.state = None
         self.score = [0,0]
-
+        self.build_state_encode()
         return
+
+    def build_state_encode(self):
+        all_angles = np.array(list(range(16)))
+        all_ball_pos = np.array(list(range(256)))
+        all_epaddle_pos = np.array(list(range(16)))
+        all_aipaddle_pos = np.array(list(range(16)))
+        all_states = cartesian((all_angles, all_ball_pos,
+            all_epaddle_pos, all_aipaddle_pos))
+
+        self.state_encodes = {}
+        for ind in range(all_states.shape[0]):
+            self.state_encodes[tuple(all_states[ind].tolist())] = ind
+        return state_encodes
+
+    def encode_obs(self,obs):
+        obs = np.array(obs)
+        ball_angle = obs[0]
+        ball_pos = obs[1]
+        epaddle_pos = obs[2]
+        aipaddle_pos = obs[3]
+        return self.state_encode[tuple([ball_angle,ball_pos,
+            epaddle_pos,aipaddle_pos])]
 
     def _del(self):
         if self.screen is not None:
@@ -47,7 +122,7 @@ class PongEnv(gym.Env):
         return
 
     def gridToInd(self,x,y):
-        return x + (self.grid_size*y)
+        return np.ravel_multi_index([y,x],[self.grid_size,self.grid_w]) 
 
     def _observation_space(self):
         lows = np.zeros(304)
@@ -68,12 +143,13 @@ class PongEnv(gym.Env):
         self.done = np.maximum(self.score[0],self.score[1]) >= 21 
         
         ballangle_state = self.ball.get_angle()
-        ballpos_state = onehot(self.gridToInd(self.ball.x//self.grid_w,
-            self.ball.y//self.grid_h),self.grid_size**2)
-        epaddle_state = onehot(self.enemyPaddle.y//self.grid_h,self.grid_size)
-        aipaddle_state = onehot(self.aiPaddle.y//self.grid_h,self.grid_size)
+        ballpos_state = self.gridToInd(self.ball.x//self.grid_w,
+            self.ball.y//self.grid_h)
+        epaddle_state = self.enemyPaddle.y//self.grid_h
+        aipaddle_state = self.aiPaddle.y//self.grid_h
 
-        self.state = ballangle_state + ballpos_state + epaddle_state + aipaddle_state
+        self.state = self.encode_obs([ballangle_state,
+            ballpos_state,epaddle_state,aipaddle_state]) 
         
         info = {}
     
@@ -161,7 +237,7 @@ class Ball:
     def get_angle(self):
         ball_angle = (vecToAngle(self.vector)-90)%360
         ball_angle = ball_angle//22.5
-        return onehot(ball_angle,16)
+        return ball_angle
 
 
 
