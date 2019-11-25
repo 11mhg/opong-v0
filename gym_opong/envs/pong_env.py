@@ -61,7 +61,7 @@ def cartesian(arrays, out=None):
 class PongEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self,game_name='Pong',enable_render=False):
+    def __init__(self,game_name='Pong',enable_render=False,draw_grid=False):
         self.done = 0
         self.counter = 0
         self.reward = 0
@@ -70,8 +70,8 @@ class PongEnv(gym.Env):
         self.grid_size = 16
         self.grid_w = self.w//self.grid_size
         self.grid_h = self.h//self.grid_size
-        
-        
+        self.draw_grid = draw_grid
+
         if enable_render:
             pygame.init()
             self.screen = pygame.display.set_mode((self.w,self.h))
@@ -103,16 +103,17 @@ class PongEnv(gym.Env):
         self.state_encodes = {}
         for ind in range(all_states.shape[0]):
             self.state_encodes[tuple(all_states[ind].tolist())] = ind
-        return state_encodes
+        return self.state_encodes
 
     def encode_obs(self,obs):
-        obs = np.array(obs)
+        obs = np.array(obs,dtype=np.int32)
         ball_angle = obs[0]
         ball_pos = obs[1]
         epaddle_pos = obs[2]
         aipaddle_pos = obs[3]
-        return self.state_encode[tuple([ball_angle,ball_pos,
+        state = self.state_encodes[tuple([ball_angle,ball_pos,
             epaddle_pos,aipaddle_pos])]
+        return state
 
     def _del(self):
         if self.screen is not None:
@@ -122,7 +123,8 @@ class PongEnv(gym.Env):
         return
 
     def gridToInd(self,x,y):
-        return np.ravel_multi_index([y,x],[self.grid_size,self.grid_w]) 
+        return np.ravel_multi_index([int(y),int(x)],[self.grid_size,
+        self.grid_size]) 
 
     def _observation_space(self):
         lows = np.zeros(304)
@@ -162,12 +164,13 @@ class PongEnv(gym.Env):
         self.aiPaddle.reset()
         self.state = [0] * 304
         ballangle_state = self.ball.get_angle()
-        ballpos_state = onehot(self.gridToInd(self.ball.x//self.grid_w,
-            self.ball.y//self.grid_h),self.grid_size**2)
-        epaddle_state = onehot(self.enemyPaddle.y//self.grid_h,self.grid_size)
-        aipaddle_state = onehot(self.aiPaddle.y//self.grid_h,self.grid_size)
+        ballpos_state = self.gridToInd(self.ball.x//self.grid_w,
+            self.ball.y//self.grid_h)
+        epaddle_state = self.enemyPaddle.y//self.grid_h
+        aipaddle_state = self.aiPaddle.y//self.grid_h
 
-        self.state = ballangle_state + ballpos_state + epaddle_state + aipaddle_state 
+        self.state = self.encode_obs([ballangle_state,
+            ballpos_state,epaddle_state,aipaddle_state]) 
         return self.state
 
     def render(self,mode='human',close=False):
@@ -185,6 +188,14 @@ class PongEnv(gym.Env):
         self.enemyPaddle.render()
         self.aiPaddle.render()
         if self.screen is not None:
+            if self.draw_grid:
+                #Draw grid here
+                for x in range(self.grid_size):
+                    xx = x * self.grid_w
+                    pygame.draw.line(self.screen,[255]*3,(xx,0),(xx,self.h)) 
+                for y in range(self.grid_size):
+                    yy = y * self.grid_h
+                    pygame.draw.line(self.screen,[255]*3,(0,yy),(self.w,yy)) 
             pygame.display.flip()
             self.clock.tick(60)
             self.screen.fill((0,0,0))

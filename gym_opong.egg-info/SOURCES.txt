@@ -1,6 +1,8 @@
+README.md
 setup.py
 gym_opong.egg-info/PKG-INFO
 gym_opong.egg-info/SOURCES.txt
 gym_opong.egg-info/dependency_links.txt
+gym_opong.egg-info/not-zip-safe
 gym_opong.egg-info/requires.txt
 gym_opong.egg-info/top_level.txt
