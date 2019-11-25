@@ -6,7 +6,8 @@ env = gym.make('opong-v0',enable_render=True,draw_grid=True)
 env.reset()
 while True:
     env.render()
-    obs, r, done, _ = env.step(env.action_space.sample())
+    action = env.action_space.sample()
+    obs, r, done, _ = env.step(action)
     if done:
         break
 

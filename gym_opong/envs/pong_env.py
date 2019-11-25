@@ -132,9 +132,29 @@ class PongEnv(gym.Env):
         return spaces.Box(lows,highs,dtype=np.int32)
 
     def step(self,action):
-        self.aiPaddle.step(action)
-        self.enemyPaddle.step()
-        self.reward = self.ball.step()
+        prev_ai_state_top = self.aiPaddle.y // self.grid_h
+        prev_ai_state_bot = (self.aiPaddle.y + self.aiPaddle.h) // self.grid_h
+        if (prev_ai_state_top==0) and (action == 0):
+            self.aiPaddle.step(action)
+            self.enemyPaddle.step()
+            self.reward = self.ball.step()
+            self.render()
+        elif (prev_ai_state_bot >= (self.grid_size-1)) and action == 1:
+            self.aiPaddle.step(action)
+            self.enemyPaddle.step()
+            self.reward = self.ball.step()
+            self.render()
+        else:
+            self.reward = 0
+            while self.aiPaddle.y // self.grid_h == prev_ai_state_top and self.reward == 0:
+                self.aiPaddle.step(action)
+                self.enemyPaddle.step()
+                self.reward = self.ball.step()
+                self.render()
+#        self.aiPaddle.step(action)
+#        self.enemyPaddle.step()
+#        self.reward = self.ball.step()
+        
         if self.reward != 0:
             self.ball.reset()
         
