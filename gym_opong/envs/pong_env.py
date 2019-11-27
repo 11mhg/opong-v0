@@ -79,13 +79,13 @@ class PongEnv(gym.Env):
         else:
             self.screen = None
 
-        self.ball = Ball(self.w,self.h,self.screen,speed=4)
+        self.ball = Ball(self.w,self.h,self.screen,speed=7)
         self.enemyPaddle = EnemyPaddle(self.w,self.h,self.ball,
                 self.screen,speed=4)
         self.aiPaddle = AIPaddle(self.w,self.h,self.ball,
                 self.screen,speed=4)
         
-        self.action_space = spaces.Discrete(2)
+        self.action_space = spaces.Discrete(3)
         self.observation_space = self._observation_space()
         self.state = None
         self.score = [0,0]
@@ -131,7 +131,7 @@ class PongEnv(gym.Env):
         highs = np.ones(304)
         return spaces.Box(lows,highs,dtype=np.int32)
 
-    def step(self,action):
+    def step(self,action,encode=True):
         prev_ai_state_top = self.aiPaddle.y // self.grid_h
         prev_ai_state_bot = (self.aiPaddle.y + self.aiPaddle.h) // self.grid_h
         if (prev_ai_state_top==0) and (action == 0):
@@ -141,6 +141,11 @@ class PongEnv(gym.Env):
             self.render()
         elif (prev_ai_state_bot >= (self.grid_size-1)) and action == 1:
             self.aiPaddle.step(action)
+            self.enemyPaddle.step()
+            self.reward = self.ball.step()
+            self.render()
+        elif (action == 2):
+            #One action is to not move
             self.enemyPaddle.step()
             self.reward = self.ball.step()
             self.render()
@@ -170,14 +175,17 @@ class PongEnv(gym.Env):
         epaddle_state = self.enemyPaddle.y//self.grid_h
         aipaddle_state = self.aiPaddle.y//self.grid_h
 
-        self.state = self.encode_obs([ballangle_state,
+        if encode:
+            self.state = self.encode_obs([ballangle_state,
             ballpos_state,epaddle_state,aipaddle_state]) 
-        
+        else:
+            self.state = onehot(ballangle_state,16) + onehot(ballpos_state,256) + \
+                    onehot(epaddle_state,16) + onehot(aipaddle_state,16)
         info = {}
     
         return self.state, self.reward, self.done, info 
 
-    def reset(self):
+    def reset(self,encode=True):
         self.score = [0,0]
         self.ball.reset()
         self.enemyPaddle.reset()
@@ -189,8 +197,13 @@ class PongEnv(gym.Env):
         epaddle_state = self.enemyPaddle.y//self.grid_h
         aipaddle_state = self.aiPaddle.y//self.grid_h
 
-        self.state = self.encode_obs([ballangle_state,
+
+        if encode:
+            self.state = self.encode_obs([ballangle_state,
             ballpos_state,epaddle_state,aipaddle_state]) 
+        else:
+            self.state = onehot(ballangle_state,16) + onehot(ballpos_state,256) + \
+                    onehot(epaddle_state,16) + onehot(aipaddle_state,16)
         return self.state
 
     def render(self,mode='human',close=False):
