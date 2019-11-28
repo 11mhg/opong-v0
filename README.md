@@ -3,10 +3,14 @@
 A custom implementation using pygame of the game of Pong. A custom implementation was made in order to make a custom state space encoding instead of using the atari implementation.
 
 ## Install
-To Install run the following line:
+To Install, clone the repository using 
+```bash
+git clone https://github.com/11mhg/opong-v0
+```
+and run the following in opong-v0/
 
 ```bash
-pip3 install git+https://github.com/11mhg/opong-v0.git --user
+pip3 install -e ./ --user
 ```
 
 ## Usage
